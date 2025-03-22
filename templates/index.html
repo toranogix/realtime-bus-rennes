@@ -1,0 +1,125 @@
+<!-- HTML page for the bus tracker -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Bus en temps réel - Rennes</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+    <!-- Mapbox CSS --> 
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />  
+
+    <!-- CSS for the markers -->
+    <style>
+      body { margin:0; padding:0; font-family: sans-serif; }
+      #map { position:absolute; top:0; bottom:0; width:100%; }
+      .mapboxgl-popup {
+          max-width: 100px;
+      }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<script>
+    
+    mapboxgl.accessToken = 'pk.eyJ1Ijoia2FybWFkYyIsImEiOiJjbThrb2wwYngwdm4yMmpxcjl4OWFtbDl3In0.Ko6UHcSxxi4GQFdUHdXfgg';
+
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/karmadc/cm8kueyjk01ak01qzekiq1jj3',
+        //style: 'mapbox://styles/mapbox/dark-v10',
+        center: [-1.6778, 48.1173],  // location 
+        zoom: 12,
+        pitch: 45,
+        bearing: -17.6,
+        antialias: true
+    });
+
+    map.on('load', () => {
+        // Add a source for bus data
+        map.addSource('buses', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        });
+
+        // Add a layer to display bus markers
+        map.addLayer({
+            'id': 'buses',
+            'type': 'circle',
+            'source': 'buses',
+            'paint': {
+                'circle-radius': 6,
+                'circle-color': [
+                    'match',
+                    ['get', 'status'],
+                    'En ligne', '#00FF00',
+                    'Hors-service', '#FF0000',
+                    '#FFFFFF'
+                ],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#FFFFFF'
+            }
+        });
+
+        // Add popup on click
+        map.on('click', 'buses', (e) => {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const properties = e.features[0].properties;
+            
+            const description = `
+                <h3>Bus ${properties.line_name}</h3>
+                <p>Direction: ${properties.direction}</p>
+                <p>Destination: ${properties.destination}</p>
+                <p>Statut: ${properties.status}</p>
+                <p>Retard: ${properties.delay_seconds} secondes</p>
+            `;
+
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(description)
+                .addTo(map);
+        });
+
+        // Change cursor on hover
+        map.on('mouseenter', 'buses', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'buses', () => {
+            map.getCanvas().style.cursor = '';
+        });
+    });
+
+    function updateBusData() {
+        fetch('/bus_data')
+            .then(response => response.json())
+            .then(geojson => {
+                //console.log("Données GeoJSON reçues:", geojson);
+                const source = map.getSource('buses');
+                if (source) {
+                    source.setData(geojson);
+                }
+            })
+            .catch(error => console.error('Erreur lors de la mise à jour des bus:', error));
+    }
+
+    // Update every 5 seconds
+    setInterval(updateBusData, 5000);
+    
+    // Initial update
+    map.on('style.load', () => {
+        updateBusData();
+    });
+</script>
+</body>
+</html>
+
+
+
+
