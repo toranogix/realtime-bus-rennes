@@ -12,7 +12,7 @@ body {
     width: 100%;
 }
 
-/* Panneau de contrôle */
+/* Panel control */
 .control-panel {
     position: absolute;
     top: 20px;
@@ -63,7 +63,7 @@ body {
     padding: 15px;
 }
 
-/* Statistiques */
+/* Statistics */
 .stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -98,10 +98,11 @@ body {
     margin-top: 5px;
 }
 
-/* Barre de recherche */
+/* Search bar */
 .search-box {
     position: relative;
     margin-top: 10px;
+    display: flex;
 }
 
 .search-box input {
@@ -126,7 +127,7 @@ body {
     color: #666;
 }
 
-/* Légende */
+/* Legend */
 .legend {
     position: absolute;
     bottom: 60px;
@@ -237,14 +238,14 @@ body {
     margin-right: 5px;
 }
 
-/* Animation pour les bus */
+/* Animation for buses */
 @keyframes pulse {
     0% { opacity: 0.8; }
     50% { opacity: 1; }
     100% { opacity: 0.8; }
 }
 
-/* Styles pour les contrôles de la carte */
+/* Styles for map controls */
 .mapboxgl-ctrl-group {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 8px;
@@ -266,7 +267,7 @@ body {
     background: #f0f0f0;
 }
 
-/* Styles pour les bus 3D */
+/* Styles for 3D buses */
 .mapboxgl-canvas {
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
 } 
