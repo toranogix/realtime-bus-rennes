@@ -1,0 +1,113 @@
+<!-- HTML page  -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Position des bus en temps réel - Rennes</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+    <!-- Mapbox CSS -->
+    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css" rel="stylesheet" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="static/css/style.css">
+
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #map { 
+            position: absolute; 
+            top: 0; 
+            bottom: 0; 
+            width: 100%; 
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <!-- Panneau de contrôle -->
+    <div class="control-panel">
+        <div class="panel-header">
+            <h2><i class="fas fa-bus"></i> Bus Rennes</h2>
+            <div class="refresh-button" onclick="updateBusData()">
+                <i class="fas fa-sync-alt"></i>
+            </div>
+        </div>
+        <div class="panel-content">
+            <div class="stats">
+                <div class="stat-item">
+                    <i class="fas fa-bus"></i>
+                    <span id="total-buses">0</span>
+                    <label>Bus en service</label>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-clock"></i>
+                    <span id="delayed-buses">0</span>
+                    <label>Bus en retard</label>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="out-of-service">0</span>
+                    <label>Hors service</label>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="bus-search" placeholder="Rechercher un bus...">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Légende -->
+    <div class="legend">
+        <h4><i class="fas fa-info-circle"></i> Etat des bus</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #4CAF50;"></div>
+            <span class="legend-text">En service</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #FFC107;"></div>
+            <span class="legend-text">En retard</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #F44336;"></div>
+            <span class="legend-text">Hors service</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-content">
+            <span>Dernière mise à jour: <span id="last-update">-</span></span>
+            <span>Données: STAR Rennes</span>
+        </div>
+    </div>
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
+    
+    <!-- Configuration Mapbox -->
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia2FybWFkYyIsImEiOiJjbThrb2wwYngwdm4yMmpxcjl4OWFtbDl3In0.Ko6UHcSxxi4GQFdUHdXfgg';
+    </script>
+    
+    <!-- Custom JS -->
+    <script src="static/js/map.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM chargé, initialisation de la carte...");
+            initMap();
+        });
+    </script>
+</body>
+</html>
