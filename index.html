@@ -14,15 +14,21 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- Custom CSS -->
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Default CSS -->
     <link rel="stylesheet" href="static/css/style.css">
 
+
+    <!-- Responsive design ===> upgrading UI -->
     <style>
         body { 
             margin: 0; 
             padding: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+
         #map { 
             position: absolute; 
             top: 0; 
@@ -30,25 +36,289 @@
             width: 100%; 
             height: 100%;
         }
-        #three-container {
+
+        .control-panel {
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 320px;
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #4CAF50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .refresh-button {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-button:hover {
+            background: #eeeeee;
+            transform: rotate(180deg);
+        }
+
+        .toggle-button {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-button:hover {
+            background: #eeeeee;
+            transform: rotate(180deg);
+        }
+
+        .panel-content {
+            padding: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-item i {
+            font-size: 1.2rem;
+            color: #4CAF50;
+            margin-bottom: 8px;
+        }
+
+        .stat-item span {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 5px 0;
+        }
+
+        .stat-item label {
+            display: block;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .search-box {
+            position: relative;
+            margin-top: 15px;
+        }
+
+        .search-box input {
             width: 100%;
-            height: 100%;
-            pointer-events: none;
+            padding: 12px 40px 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #f8f9fa;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            background: #fff;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        .search-box i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 35px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .legend h4 {
+            margin: 0 0 15px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .legend-text {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 8px 20px;
+            font-size: 0.8rem;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mapbox controls styling */
+        .mapboxgl-ctrl-group {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .mapboxgl-ctrl-group button {
+            width: 36px;
+            height: 36px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .control-panel {
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .legend {
+                bottom: 70px;
+                right: 10px;
+                left: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
     
+    <!-- Navigation controls  ===> zoom in, zoom out, north -->
+    <div class="map-controls">
+        <button class="control-button" id="zoom-in" title="Zoom avant">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="control-button" id="zoom-out" title="Zoom arrière">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="control-button" id="rotate" title="Rotation">
+            <i class="fas fa-compass"></i>
+        </button>
+    </div>
+
+    <!-- Search bar -->
+    <div class="search-widget">
+        <div class="search-box">
+            <input type="text" id="bus-search" placeholder="Rechercher une ligne...">
+            <i class="fas fa-search"></i>
+        </div>
+        <!-- Bus suggestions -->
+        <div class="search-suggestions"></div>
+    </div>
+
     <!-- Panel control -->
-    <div class="control-panel">
+    <div class="control-panel" id="control-panel">
         <div class="panel-header">
-            <h2><i class="fas fa-bus"></i> Bus Rennes</h2>
-            <div class="refresh-button" onclick="updateBusData()">
-                <i class="fas fa-sync-alt"></i>
+            <h2><i class="fas fa-bus"></i>Bus Rennes</h2>
+            <div class="panel-controls">
+                <button class="refresh-button" onclick="updateBusData()" title="Actualiser">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="toggle-button" onclick="togglePanel('control-panel')" title="Réduire/Agrandir">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
             </div>
         </div>
         <div class="panel-content">
@@ -56,12 +326,12 @@
                 <div class="stat-item">
                     <i class="fas fa-bus"></i>
                     <span id="total-buses">0</span>
-                    <label>Bus en service</label>
+                    <label>En service</label>
                 </div>
                 <div class="stat-item">
                     <i class="fas fa-clock"></i>
                     <span id="delayed-buses">0</span>
-                    <label>Bus en retard</label>
+                    <label>En retard</label>
                 </div>
                 <div class="stat-item">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -69,40 +339,71 @@
                     <label>Hors service</label>
                 </div>
             </div>
-            <div class="search-box">
-                <input type="text" id="bus-search" placeholder="Rechercher un bus...">
-                <i class="fas fa-search"></i>
+        </div>
+    </div>
+
+    <!-- Légende -->
+    <div class="legend" id="legend-panel">
+        <div class="legend-header">
+            <h4><i class="fas fa-info-circle"></i>État des bus</h4>
+            <div class="panel-controls">
+                <button class="toggle-button" onclick="togglePanel('legend-panel')" title="Réduire/Agrandir">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+            </div>
+        </div>
+        <div class="legend-content">
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <i class="fas fa-bus" style="color: #4CAF50;"></i>
+                </div>
+                <span class="legend-text">En service</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <i class="fas fa-bus" style="color: #FFC107;"></i>
+                </div>
+                <span class="legend-text">En retard</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <i class="fas fa-bus" style="color: #F44336;"></i>
+                </div>
+                <span class="legend-text">Hors service</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <i class="fas fa-bus" style="color: #999999;"></i>
+                </div>
+                <span class="legend-text">Inconnu</span>
             </div>
         </div>
     </div>
 
-    <!-- Légend -->
-    <div class="legend">
-        <h4><i class="fas fa-info-circle"></i> Etat des bus</h4>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #4CAF50;"></div>
-            <span class="legend-text">En service</span>
+    <!-- Alerts Panel -->
+    <div class="alerts-panel" id="alerts-panel">
+        <div class="alerts-header">
+            <h2><i class="fas fa-exclamation-triangle"></i>Alertes trafic</h2>
+            <div class="panel-controls">
+                <button class="refresh-button" onclick="updateTrafficAlerts()" title="Actualiser les alertes">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="toggle-button" onclick="togglePanel('alerts-panel')" title="Réduire/Agrandir">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+            </div>
         </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #FFC107;"></div>
-            <span class="legend-text">En retard</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #F44336;"></div>
-            <span class="legend-text">Hors service</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #999999;"></div>
-            <span class="legend-text">Inconnu</span>
+        <div class="alerts-content">
+            <div id="traffic-alerts">
+                <p class="no-alerts">Chargement des alertes...</p>
+            </div>
         </div>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-        <div class="footer-content">
-            <span>Dernière mise à jour: <span id="last-update">-</span></span>
-            <span>Propulsé par <a href="https://www.mapbox.com/">Mapbox</a> & <a href="https://data.explore.star.fr/">STAR</a></span>
-        </div>
+        <span>Dernière mise à jour: <span id="last-update">-</span></span>
+        <span>Propulsé par <a href="https://www.mapbox.com/">Mapbox</a> & <a href="https://data.explore.star.fr/">STAR</a></span>
     </div>
 
     <!-- Mapbox GL JS -->
@@ -114,7 +415,6 @@
     </script>
     
     <!-- Custom JS -->
-    <script src="static/js/three.js" type="module"></script>
     <script src="static/js/map.js"></script>
     <script>
         window.addEventListener('load', () => {
