@@ -218,8 +218,8 @@ function setupInteractions() {
             // Convert seconds to a more readable format
             const retard = properties.delay_seconds || 0;
             const retardText = retard === 0 ? 'À l\'heure' : 
-                             retard < 60 ? `${retard} secondes` :
-                             `${Math.floor(retard/60)} min ${retard%60} sec`;
+                             retard < 60 ? retard + ' secondes' :
+                             Math.floor(retard/60) + ' min ' + retard%60 + ' sec';
             
             const description = `
                 <div class="popup-container animated fadeIn">
@@ -373,13 +373,13 @@ function setupSearch() {
                    properties.line_name.toLowerCase().includes(searchTerm);
         });
 
-        // Update map
+        // Update map ===> display bus filtered
         source.setData({
             type: 'FeatureCollection',
             features: filteredFeatures
         });
 
-        // Update suggestions
+        // Update search suggestions
         updateSuggestions(searchTerm, features);
     });
 
@@ -494,6 +494,8 @@ function updateBusData() {
                 }
             }));
 
+
+            // Process geojson data ===> display bus
             const geojson = {
                 type: 'FeatureCollection',
                 features: features
@@ -612,8 +614,7 @@ function togglePanel(panelId) {
         button.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
-    // Save panel state
-    localStorage.setItem(`${panelId}State`, isCollapsed ? 'collapsed' : 'expanded');
+    localStorage.setItem(panelId + 'State', isCollapsed ? 'collapsed' : 'expanded');
 }
 
 // Function to restore panel states
@@ -622,7 +623,7 @@ function restorePanelStates() {
     panels.forEach(panelId => {
         const panel = document.getElementById(panelId);
         if (panel) {
-            const state = localStorage.getItem(`${panelId}State`);
+            const state = localStorage.getItem(panelId + 'State');
             if (state === 'collapsed') {
                 panel.classList.add('panel-collapsed');
                 const button = panel.querySelector('.toggle-button i');
