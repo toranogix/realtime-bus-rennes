@@ -30,6 +30,14 @@
             width: 100%; 
             height: 100%;
         }
+        #three-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -83,6 +91,10 @@
             <div class="legend-color" style="background-color: #F44336;"></div>
             <span class="legend-text">Hors service</span>
         </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #999999;"></div>
+            <span class="legend-text">Inconnu</span>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -102,10 +114,11 @@
     </script>
     
     <!-- Custom JS -->
+    <script src="static/js/three.js" type="module"></script>
     <script src="static/js/map.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM chargé, initialisation de la carte...");
+        window.addEventListener('load', () => {
+            console.log("Initialisation de la carte...");
             initMap();
         });
     </script>

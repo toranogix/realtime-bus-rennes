@@ -1,12 +1,11 @@
-
 // Map configuration
 const mapConfig = {
     container: 'map',
     style: 'mapbox://styles/karmadc/cm8tk145000fy01s74mh1fxzc',
     center: [-1.6778, 48.1173],
-    zoom: 12,
-    pitch: 45,
-    bearing: 0,
+    zoom: 13.5,
+    pitch: 30,
+    bearing: -30,
     antialias: true
 };
 
@@ -37,51 +36,60 @@ function initMap() {
     map = new mapboxgl.Map(mapConfig);
 
     map.on('load', () => {
+        console.log("Carte chargée, ajout des contrôles...");
         
         map.addControl(new mapboxgl.NavigationControl());
         map.addControl(new mapboxgl.ScaleControl());
 
-        setupBusSource();
+        // Add the source first
+        map.addSource('buses', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        });
+
+        // Then add the layer
+        map.addLayer({
+            'id': 'buses-layer',
+            'type': 'circle',
+            'source': 'buses',
+            'paint': {
+                'circle-radius': busConfig.size,
+                'circle-color': [
+                    'match',
+                    ['get', 'status'],
+                    'En ligne', busConfig.colors['En ligne'],
+                    'Hors-service', busConfig.colors['Hors-service'],
+                    'En retard', busConfig.colors['En retard'],
+                    'Inconnu', busConfig.colors['Inconnu'],
+                    busConfig.colors.default
+                ],
+                'circle-opacity': 0.9,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+
+        console.log("Initialisation de Three.js...");
+        initThreeJS();
+
+        console.log("Configuration des interactions...");
         setupInteractions();
         setupSearch();
+
+        console.log("Première mise à jour des données...");
         updateBusData();
+
+        // Update Three.js camera when map moves
+        map.on('move', () => {
+            updateThreeCamera();
+        });
     });
 
     map.on('error', (e) => {
         console.error('Erreur de la carte:', e);
-    });
-}
-
-// Function to setup the bus source
-function setupBusSource() {
-    
-    map.addSource('buses', {
-        type: 'geojson',
-        data: {
-            type: 'FeatureCollection',
-            features: []
-        }
-    });
-
-    map.addLayer({
-        'id': 'buses-layer',
-        'type': 'circle',
-        'source': 'buses',
-        'paint': {
-            'circle-radius': busConfig.size,
-            'circle-color': [
-                'match',
-                ['get', 'status'],
-                'En ligne', busConfig.colors['En ligne'],
-                'Hors-service', busConfig.colors['Hors-service'],
-                'En retard', busConfig.colors['En retard'],
-                'Inconnu', busConfig.colors['Inconnu'],
-                busConfig.colors.default
-            ],
-            'circle-opacity': 0.9,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff'
-        }
     });
 }
 
@@ -118,7 +126,7 @@ function setupInteractions() {
     });
 }
 
-// Function to setup the search
+// Function to setup the search 
 function setupSearch() {
     const searchInput = document.getElementById('bus-search');
     if (!searchInput) return;
@@ -144,12 +152,9 @@ function setupSearch() {
 
 // Function to update the bus data
 function updateBusData() {
-    
     fetch(API_URL)
         .then(response => response.json())
         .then(data => {
-            
-            // Process the received GeoJSON directly
             const features = data.features.map(feature => ({
                 ...feature,
                 properties: {
@@ -174,6 +179,7 @@ function updateBusData() {
             }
             
             map.getSource('buses').setData(geojson);
+            updateThreeMarkers(features);
             updateStats(features);
             
             lastUpdateTime = new Date();
@@ -182,17 +188,16 @@ function updateBusData() {
                 lastUpdateElement.textContent = lastUpdateTime.toLocaleTimeString();
             }
         })
-
-        // If error, log the error
         .catch(error => {
             console.error('Erreur lors de la mise à jour des bus:', error);
         });
 }
+
 // Function to update the stats
 function updateStats(features) {
     const stats = {
         total: features.length,
-        delayed: features.filter(f => f.properties.status === 'En retard').length,
+        delayed: features.filter(f => f.properties.status === 'En retard' || f.properties.delay_seconds > 0).length,
         outOfService: features.filter(f => f.properties.status === 'Hors-service').length
     };
 
