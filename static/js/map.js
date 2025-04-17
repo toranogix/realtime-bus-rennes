@@ -29,13 +29,59 @@ const busConfig = {
 const API_URLS = {
     BUS_POSITION: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-vehicules-position-tr/exports/geojson?limit=-1&timezone=UTC&use_labels=false&epsg=4326",
     BUS_LANES: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-topologie-parcours-td/exports/geojson?limit=-1&timezone=UTC&use_labels=false&epsg=4326",
-    TRAFFIC_ALERTS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-busmetro-trafic-alertes-tr/records?limit=-1"
+    TRAFFIC_ALERTS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-busmetro-trafic-alertes-tr/records?limit=-1",
+    BUS_ICONS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-lignes-pictogrammes-dm/records?limit=-1"
 };
 
 
 
 let map;
 let lastUpdateTime = null;
+let busIcons = new Map(); // Pour stocker les icônes des bus
+
+// Function to load bus icons
+async function loadBusIcons() {
+    try {
+        const response = await fetch(API_URLS.BUS_ICONS);
+        const data = await response.json();
+        
+        // Pour chaque pictogramme, on prend la version 30x30
+        const iconPromises = data.results
+            .filter(item => item.resolution === "1:30" && item.image && item.image.url)
+            .map(item => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";  // Important pour CORS
+                
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageId = `bus-icon-${item.idligne}`;
+                    if (!map.hasImage(imageId)) {
+                        map.addImage(imageId, ctx.getImageData(0, 0, img.width, img.height));
+                    }
+                    busIcons.set(item.idligne, imageId);
+                    resolve();
+                };
+                
+                img.onerror = () => {
+                    console.warn(`Impossible de charger l'icône pour la ligne ${item.idligne}`);
+                    resolve(); // On continue même en cas d'erreur
+                };
+                
+                img.src = item.image.url;
+            }));
+        
+        await Promise.all(iconPromises);
+        console.log("Pictogrammes de bus chargés:", busIcons.size);
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des pictogrammes:', error);
+    }
+}
 
 // Function to initialize the map
 function initMap() {
@@ -44,7 +90,7 @@ function initMap() {
     map.on('load', () => {
         console.log("Carte chargée, ajout des contrôles...");
         
-        // Add custom navigation controls
+        // Navigation controls ===> zoom in, zoom out, rotate
         const zoomInButton = document.getElementById('zoom-in');
         const zoomOutButton = document.getElementById('zoom-out');
         const rotateButton = document.getElementById('rotate');
@@ -70,7 +116,7 @@ function initMap() {
 
         map.addControl(new mapboxgl.ScaleControl());
 
-        // Add the bus lanes source and layer first
+        // Add bus lanes first
         map.addSource('bus-lanes', {
             type: 'geojson',
             data: {
@@ -101,7 +147,7 @@ function initMap() {
             }
         });
 
-        // Add the buses source
+        // Add buses source
         map.addSource('buses', {
             type: 'geojson',
             data: {
@@ -110,18 +156,22 @@ function initMap() {
             }
         });
 
-        // Add the buses layer above the bus lanes
+        // Add circle layer first (for buses without icons)
         map.addLayer({
-            'id': 'buses-layer',
+            'id': 'buses-fallback-layer',
             'type': 'circle',
             'source': 'buses',
+            'filter': [
+                'all',
+                ['!=', ['get', 'status'], 'Hors-service'],
+                ['!', ['has', 'icon_id']]
+            ],
             'paint': {
                 'circle-radius': busConfig.size,
                 'circle-color': [
                     'match',
                     ['get', 'status'],
                     'En ligne', busConfig.colors['En ligne'],
-                    'Hors-service', busConfig.colors['Hors-service'],
                     'En retard', busConfig.colors['En retard'],
                     'Inconnu', busConfig.colors['Inconnu'],
                     busConfig.colors.default
@@ -132,18 +182,40 @@ function initMap() {
             }
         });
 
+        // Add icon layer on top
+        map.addLayer({
+            'id': 'buses-layer',
+            'type': 'symbol',
+            'source': 'buses',
+            'filter': [
+                'all',
+                ['!=', ['get', 'status'], 'Hors-service'],
+                ['has', 'icon_id']
+            ],
+            'layout': {
+                'icon-image': ['get', 'icon_id'],
+                'icon-size': 0.8,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true
+            }
+        });
+
         console.log("Configuration des interactions...");
         setupInteractions();
         setupSearch();
 
-        // Fetch bus lanes first
-        console.log("Chargement des lignes de bus...");
-        fetchBusLanes();
+        // Load bus icons first
+        console.log("Chargement des pictogrammes de bus...");
+        loadBusIcons().then(() => {
+            // Then fetch bus lanes
+            console.log("Chargement des lignes de bus...");
+            fetchBusLanes();
 
-        console.log("Première mise à jour des données...");
-        updateBusData();
-        updateTrafficAlerts();
-        restorePanelStates();
+            console.log("Première mise à jour des données...");
+            updateBusData();
+            updateTrafficAlerts();
+            restorePanelStates();
+        });
     });
 
     map.on('error', (e) => {
@@ -167,9 +239,8 @@ function setupInteractions() {
             hoverTimeout = null;
         }
     }
-
     // Bus markers popup ===> onhover (survol)
-    map.on('mouseenter', 'buses-layer', (me) => {
+    map.on('mouseenter', ['buses-layer', 'buses-fallback-layer'], (me) => {
         if (!me.features.length) return;
         clearHoverPopup();
 
@@ -201,13 +272,13 @@ function setupInteractions() {
         map.getCanvas().style.cursor = 'pointer';
     });
 
-    map.on('mouseleave', 'buses-layer', () => {
+    map.on('mouseleave', ['buses-layer', 'buses-fallback-layer'], () => {
         clearHoverPopup();
         map.getCanvas().style.cursor = '';
     });
 
     // Bus markers popup ===> onclick
-    map.on('click', 'buses-layer', (me) => {
+    map.on('click', ['buses-layer', 'buses-fallback-layer'], (me) => {
         if (me.features.length > 0) {
             if (currentPopup) currentPopup.remove();
             clearHoverPopup();
@@ -424,7 +495,7 @@ function setupSearch() {
                 });
             });
         } else {
-            suggestionsContainer.innerHTML = '<div class="suggestion-item">Aucune ligne trouvée</div>';
+            suggestionsContainer.innerHTML = '<div class="suggestion-item" style="color: #888888; font-size: 10px;">Aucune ligne trouvée</div>';
             suggestionsContainer.style.display = 'block';
         }
     }
@@ -475,27 +546,55 @@ function fetchBusLanes() {
 // Function to update the bus data
 function updateBusData() {
     fetch(API_URLS.BUS_POSITION)
-        .then(response => response.json())
+        .then(response => response.text())
+        .then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Erreur de parsing JSON:', e);
+                const cleanedText = text.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}');
+                return JSON.parse(cleanedText);
+            }
+        })
         .then(data => {
-            const features = data.features.map(feature => ({
-                ...feature,
-                properties: {
-                    ...feature.properties,
-                    bus_id: feature.properties.idbus,
-                    line_name: feature.properties.nomcourtligne,
-                    direction: feature.properties.sens === 0 ? "Aller" : feature.properties.sens === 1 ? "Retour" : "N/A",
-                    destination: feature.properties.destination,
-                    delay_seconds: feature.properties.ecartsecondes,
+            if (!data || !data.features) {
+                console.error('Données invalides reçues de l\'API');
+                return;
+            }
 
-                    // Update status if bus is delayed ===> delay > 0 seconds
-                    status: feature.properties.ecartsecondes > 0 ? 'En retard' : 
-                           Array.isArray(feature.properties.etat) ? feature.properties.etat[0] : 
-                           feature.properties.etat || 'Inconnu'
-                }
-            }));
+            const features = data.features
+                .filter(feature => 
+                    feature.properties && 
+                    feature.properties.etat !== 'Hors-service' &&
+                    feature.geometry &&
+                    feature.geometry.coordinates &&
+                    feature.geometry.coordinates.length === 2
+                )
+                .map(feature => {
+                    const idligne = feature.properties.idligne;
+                    // Vérifier si l'icône existe dans notre Map
+                    const hasIcon = busIcons.has(idligne);
+                    
+                    return {
+                        type: 'Feature',
+                        geometry: feature.geometry,
+                        properties: {
+                            ...feature.properties,
+                            bus_id: feature.properties.idbus,
+                            line_name: feature.properties.nomcourtligne,
+                            direction: feature.properties.sens === 0 ? "Aller" : feature.properties.sens === 1 ? "Retour" : "N/A",
+                            destination: feature.properties.destination,
+                            delay_seconds: feature.properties.ecartsecondes,
+                            // Ajouter icon_id seulement si l'icône existe
+                            ...(hasIcon && { icon_id: busIcons.get(idligne) }),
+                            status: feature.properties.ecartsecondes > 0 ? 'En retard' : 
+                                   Array.isArray(feature.properties.etat) ? feature.properties.etat[0] : 
+                                   feature.properties.etat || 'Inconnu'
+                        }
+                    };
+                });
 
-
-            // Process geojson data ===> display bus
+            // Process geojson data
             const geojson = {
                 type: 'FeatureCollection',
                 features: features
@@ -507,6 +606,14 @@ function updateBusData() {
             }
             
             map.getSource('buses').setData(geojson);
+            
+            // Debug logs
+            const withIcons = features.filter(f => f.properties.icon_id).length;
+            const withoutIcons = features.filter(f => !f.properties.icon_id).length;
+            console.log('Nombre total de bus: ' + features.length);
+            console.log('Nombre de bus avec icônes: ' + withIcons);
+            console.log('Nombre de bus sans icônes: ' + withoutIcons);
+            
             updateStats(features);
             
             lastUpdateTime = new Date();
