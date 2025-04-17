@@ -155,12 +155,13 @@
         .search-box {
             position: relative;
             margin-top: 15px;
+            margin-bottom: 15px;
         }
 
         .search-box input {
             width: 100%;
             padding: 12px 40px 12px 15px;
-            border: none;
+            border: 1px solid #4CAF50;
             border-radius: 8px;
             background: #f8f9fa;
             font-size: 0.9rem;
@@ -168,7 +169,7 @@
         }
 
         .search-box input:focus {
-            outline: none;
+            outline:#4CAF50;
             background: #fff;
             box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
         }
@@ -181,55 +182,12 @@
             color: #666;
         }
 
-        .legend {
-            position: absolute;
-            bottom: 35px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-        }
-
-        .legend h4 {
-            margin: 0 0 15px 0;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #1a1a1a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .legend-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-
-        .legend-text {
-            font-size: 0.85rem;
-            color: #666;
-        }
-
         .footer {
             position: absolute;
             bottom: 0;
-            left: 0;
+            margin-left: 300px;
             right: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.411);
             backdrop-filter: blur(10px);
             padding: 8px 20px;
             font-size: 0.8rem;
@@ -248,6 +206,29 @@
 
         .footer a:hover {
             text-decoration: underline;
+        }
+
+        .footer-legend {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .footer-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .footer-legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        .footer-legend-text {
+            font-size: 0.8rem;
+            color: #666;
         }
 
         /* Mapbox controls styling */
@@ -274,10 +255,8 @@
                 grid-template-columns: repeat(2, 1fr);
             }
 
-            .legend {
-                bottom: 70px;
-                right: 10px;
-                left: 10px;
+            .footer {
+                display: none;
             }
         }
     </style>
@@ -285,7 +264,9 @@
 <body>
     <div id="map"></div>
     
-    <!-- Navigation controls  ===> zoom in, zoom out, north -->
+
+
+    <!-- Navigation controls -->
     <div class="map-controls">
         <button class="control-button" id="zoom-in" title="Zoom avant">
             <i class="fas fa-plus"></i>
@@ -296,7 +277,11 @@
         <button class="control-button" id="rotate" title="Rotation">
             <i class="fas fa-compass"></i>
         </button>
+        <button class="control-button" id="info-toggle" title="Informations">
+            <i class="fas fa-circle-info"></i>
+        </button>
     </div>
+
 
     <!-- Search bar -->
     <div class="search-widget">
@@ -307,6 +292,8 @@
         <!-- Bus suggestions -->
         <div class="search-suggestions"></div>
     </div>
+
+
 
     <!-- Panel control -->
     <div class="control-panel" id="control-panel">
@@ -342,49 +329,8 @@
         </div>
     </div>
 
-    <!-- Légende -->
-    <div class="legend" id="legend-panel">
-        <div class="legend-header">
-            <h4><i class="fas fa-info-circle"></i>État des bus</h4>
-            <div class="panel-controls">
-                <button class="toggle-button" onclick="togglePanel('legend-panel')" title="Réduire/Agrandir">
-                    <i class="fas fa-chevron-up"></i>
-                </button>
-            </div>
-        </div>
-        <div class="legend-content">
-            <div class="legend-item">
-                <div class="legend-icon">
-                    <i class="fas fa-bus" style="color: #4CAF50;"></i>
-                </div>
-                <span class="legend-text">En service</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-icon">
-                    <i class="fas fa-bus" style="color: #FFC107;"></i>
-                </div>
-                <span class="legend-text">En retard</span>
-            </div>
-
-            <!-- Supprimer les bus hors service -->
-            <!-- Bus hors service 
-            <div class="legend-item">
-                <div class="legend-icon">
-                    <i class="fas fa-bus" style="color: #F44336;"></i>
-                </div>
-                <span class="legend-text">Hors service</span>
-            </div>
-            -->
 
 
-            <div class="legend-item">
-                <div class="legend-icon">
-                    <i class="fas fa-bus" style="color: #999999;"></i>
-                </div>
-                <span class="legend-text">Inconnu</span>
-            </div>
-        </div>
-    </div>
 
     <!-- Alerts Panel -->
     <div class="alerts-panel" id="alerts-panel">
@@ -406,12 +352,79 @@
         </div>
     </div>
 
+
+
     <!-- Footer -->
     <div class="footer">
-        <span>Dernière mise à jour: <span id="last-update">-</span></span>
-        <span>Propulsé par <a href="https://www.mapbox.com/">Mapbox</a> & <a href="https://data.explore.star.fr/">STAR</a></span>
+        <div class="footer-content">
+            <span class="footer-credits">
+                © STAR | © Mapbox | © OpenStreetMap
+                <a href="https://apps.mapbox.com/feedback/" class="improve-map">Améliorer cette carte</a>
+            </span>
+        </div>
     </div>
 
+
+
+    <!-- Info widget -->
+    <div class="mobile-info-widget" id="info-widget">
+        <div class="mobile-info-header">
+            <h4><i class="fas fa-circle-info"></i> Informations</h4>
+            <div class="panel-controls">
+                <button class="toggle-button" title="Fermer">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="mobile-info-content">
+            <div class="info-section">
+                <div class="info-section-title">
+                    <i class="fas fa-clock"></i>
+                    Dernière mise à jour
+                </div>
+                <div class="info-section-content update-time">
+                    <span id="mobile-last-update">-</span>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <div class="info-section-title">
+                    <i class="fas fa-bus"></i>
+                    État des bus
+                </div>
+                <div class="info-section-content">
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #4CAF50;"></div>
+                            <span class="legend-text">En service</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #FFC107;"></div>
+                            <span class="legend-text">En retard</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #999999;"></div>
+                            <span class="legend-text">Inconnu</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <div class="info-section-title">
+                    <i class="fas fa-info-circle"></i>
+                    À propos
+                </div>
+                <div class="info-section-content">
+                    <p>Application développée par <a href="https://github.com/toranogix">Omar.D - 2025</a></p>
+                    <p>Données fournies par <a href="https://data.explore.star.fr/">STAR</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- SCRIPT ==> IMPORT LIBRARIE MAPBOX -->
     <!-- Mapbox GL JS -->
     <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
     

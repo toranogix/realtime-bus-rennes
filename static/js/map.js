@@ -2,11 +2,14 @@
 const mapConfig = {
     container: 'map',
     style: 'mapbox://styles/karmadc/cm8tk145000fy01s74mh1fxzc', // perso mapbox style
+    
     center: [-1.6778, 48.1173],
-    zoom: 12,
+    zoom: 11.5, 
     pitch: 30,
     bearing: -30,
-    antialias: true
+    antialias: true,
+    maxZoom: 18,
+    minZoom: 9
 };
 
 
@@ -35,9 +38,56 @@ const API_URLS = {
 
 
 
+// Initialize global variables
 let map;
 let lastUpdateTime = null;
-let busIcons = new Map(); // Pour stocker les icônes des bus
+let busIcons = new Map(); 
+
+
+
+
+// Initialize info widget
+function initInfoWidget() {
+
+    const infoWidget = document.getElementById('info-widget');
+    const infoToggle = document.getElementById('info-toggle');
+    const closeButton = infoWidget.querySelector('.toggle-button');
+    
+    // Hide the widget by default
+    infoWidget.style.display = 'none';
+    
+    // Toggle widget visibility
+    infoToggle.addEventListener('click', (me) => {
+        me.stopPropagation();
+        const isVisible = infoWidget.style.display === 'block';
+        
+        infoWidget.style.display = isVisible ? 'none' : 'block';
+        infoToggle.classList.toggle('active', !isVisible);
+        
+        // Log for debugging
+        console.log('Bouton info cliqué:', !isVisible);
+    });
+    
+    closeButton.addEventListener('click', () => {
+        infoWidget.style.display = 'none';
+        infoToggle.classList.remove('active');
+    });
+    
+    // Close widget when clicking outside
+    document.addEventListener('click', (me) => {
+        if (infoWidget.style.display === 'block' && 
+            !infoWidget.contains(me.target) && 
+            me.target !== infoToggle) {
+            infoWidget.style.display = 'none';
+            infoToggle.classList.remove('active');
+        }
+    });
+    
+    // Prevent clicks inside widget from closing the widget
+    infoWidget.addEventListener('click', (me) => {
+        me.stopPropagation();
+    });
+}
 
 // Function to load bus icons
 async function loadBusIcons() {
@@ -45,12 +95,14 @@ async function loadBusIcons() {
         const response = await fetch(API_URLS.BUS_ICONS);
         const data = await response.json();
         
-        // Pour chaque pictogramme, on prend la version 30x30
+
+
+        // For each pictogram, we use the 30x30 version
         const iconPromises = data.results
             .filter(item => item.resolution === "1:30" && item.image && item.image.url)
             .map(item => new Promise((resolve, reject) => {
                 const img = new Image();
-                img.crossOrigin = "anonymous";  // Important pour CORS
+                img.crossOrigin = "anonymous";  // NB : Important pour gérer l'erreur CORS !!!
                 
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
@@ -68,8 +120,8 @@ async function loadBusIcons() {
                 };
                 
                 img.onerror = () => {
-                    console.warn(`Impossible de charger l'icône pour la ligne ${item.idligne}`);
-                    resolve(); // On continue même en cas d'erreur
+                    console.warn('Impossible de charger l\'icône pour la ligne ' + item.idligne);
+                    resolve(); // On continue même en cas d'erreur !!!
                 };
                 
                 img.src = item.image.url;
@@ -88,7 +140,10 @@ function initMap() {
     map = new mapboxgl.Map(mapConfig);
 
     map.on('load', () => {
-        console.log("Carte chargée, ajout des contrôles...");
+        console.log("Carte chargée, initialisation des contrôles...");
+        
+        // Initialize info widget
+        initInfoWidget();
         
         // Navigation controls ===> zoom in, zoom out, rotate
         const zoomInButton = document.getElementById('zoom-in');
@@ -285,6 +340,8 @@ function setupInteractions() {
 
             const coordinates = me.features[0].geometry.coordinates.slice();
             const properties = me.features[0].properties;
+            
+
             
             // Convert seconds to a more readable format
             const retard = properties.delay_seconds || 0;
@@ -617,9 +674,13 @@ function updateBusData() {
             updateStats(features);
             
             lastUpdateTime = new Date();
-            const lastUpdateElement = document.getElementById('last-update');
-            if (lastUpdateElement) {
-                lastUpdateElement.textContent = lastUpdateTime.toLocaleTimeString();
+            const mobileLastUpdateElement = document.getElementById('mobile-last-update');
+            if (mobileLastUpdateElement) {
+                mobileLastUpdateElement.textContent = lastUpdateTime.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
             }
         })
         .catch(error => {
@@ -719,6 +780,18 @@ function togglePanel(panelId) {
     
     if (button) {
         button.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    // Si c'est le widget d'information, on met à jour aussi le bouton de contrôle
+    if (panelId === 'info-widget') {
+        const infoToggle = document.getElementById('info-toggle');
+        if (infoToggle) {
+            if (isCollapsed) {
+                infoToggle.classList.remove('active');
+            } else {
+                infoToggle.classList.add('active');
+            }
+        }
     }
 
     localStorage.setItem(panelId + 'State', isCollapsed ? 'collapsed' : 'expanded');
@@ -986,6 +1059,14 @@ style.textContent = `
 
     .panel-collapsed .toggle-button i {
         transform: rotate(180deg);
+    }
+
+    .control-button.active {
+        background: #4CAF50;
+    }
+    
+    .control-button.active i {
+        color: white;
     }
 `;
 document.head.appendChild(style);
