@@ -89,6 +89,90 @@ function initInfoWidget() {
     });
 }
 
+// Initialize alerts widget
+function initAlertsWidget() {
+    const alertsWidget = document.getElementById('alerts-widget');
+    const alertsToggle = document.getElementById('alerts-toggle');
+    const closeButton = alertsWidget.querySelector('.toggle-button');
+    const alertsContent = document.getElementById('traffic-alerts-widget');
+
+    console.log('Initialisation du widget d\'alertes:', {
+        alertsWidget: alertsWidget ? 'Trouvé' : 'Non trouvé',
+        alertsToggle: alertsToggle ? 'Trouvé' : 'Non trouvé',
+        closeButton: closeButton ? 'Trouvé' : 'Non trouvé',
+        alertsContent: alertsContent ? 'Trouvé' : 'Non trouvé'
+    });
+
+    // Hide the widget by default
+    alertsWidget.style.display = 'none';
+    
+    // Toggle widget visibility
+    alertsToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isVisible = alertsWidget.style.display === 'block';
+        console.log('Bouton alertes cliqué. État actuel:', isVisible ? 'visible' : 'masqué');
+        
+        alertsWidget.style.display = isVisible ? 'none' : 'block';
+        alertsToggle.classList.toggle('active', !isVisible);
+        
+        if (!isVisible) {
+            // Update alerts when showing the widget
+            updateTrafficAlerts();
+        }
+        
+        console.log('Nouvel état du widget:', alertsWidget.style.display);
+    });
+    
+    // Close button functionality
+    if (closeButton) {
+        closeButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            alertsWidget.style.display = 'none';
+            alertsToggle.classList.remove('active');
+            console.log('Widget d\'alertes fermé via bouton fermer');
+        });
+    }
+    
+    // Close widget when clicking outside
+    document.addEventListener('click', function(e) {
+        if (alertsWidget.style.display === 'block' && 
+            !alertsWidget.contains(e.target) && 
+            e.target !== alertsToggle) {
+            alertsWidget.style.display = 'none';
+            alertsToggle.classList.remove('active');
+            console.log('Widget d\'alertes fermé (clic extérieur)');
+        }
+    });
+    
+    // Prevent clicks inside widget from closing it
+    alertsWidget.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Initial update of traffic alerts
+    updateTrafficAlerts();
+    console.log('Mise à jour initiale des alertes effectuée');
+}
+
+
+// Function to search for a bus line in the alerts widget
+function searchBusLine(lineName) {
+    const alertsWidget = document.getElementById('alerts-widget');
+    const alertsContent = document.getElementById('traffic-alerts-widget');
+    
+    if (!alertsWidget || !alertsContent) {
+        console.error('Widget d\'alertes non trouvé');
+        return;
+    }
+    
+    
+    
+    
+}
+
+
+
+
 // Function to load bus icons
 async function loadBusIcons() {
     try {
@@ -144,6 +228,9 @@ function initMap() {
         
         // Initialize info widget
         initInfoWidget();
+
+        // Initialize alerts widget
+        initAlertsWidget();
         
         // Navigation controls ===> zoom in, zoom out, rotate
         const zoomInButton = document.getElementById('zoom-in');
@@ -599,7 +686,6 @@ function fetchBusLanes() {
         });
 }
 
-
 // Function to update the bus data
 function updateBusData() {
     fetch(API_URLS.BUS_POSITION)
@@ -629,7 +715,10 @@ function updateBusData() {
                 )
                 .map(feature => {
                     const idligne = feature.properties.idligne;
-                    // Vérifier si l'icône existe dans notre Map
+                    
+                    
+                    
+                    // Check if the icon exists
                     const hasIcon = busIcons.has(idligne);
                     
                     return {
@@ -642,7 +731,10 @@ function updateBusData() {
                             direction: feature.properties.sens === 0 ? "Aller" : feature.properties.sens === 1 ? "Retour" : "N/A",
                             destination: feature.properties.destination,
                             delay_seconds: feature.properties.ecartsecondes,
-                            // Ajouter icon_id seulement si l'icône existe
+
+
+
+                            // Add icon_id only if the icon exists
                             ...(hasIcon && { icon_id: busIcons.get(idligne) }),
                             status: feature.properties.ecartsecondes > 0 ? 'En retard' : 
                                    Array.isArray(feature.properties.etat) ? feature.properties.etat[0] : 
@@ -721,30 +813,56 @@ function formatDate(dateString) {
 
 // Function to fetch and display traffic alerts
 function updateTrafficAlerts() {
+    console.log('Début de la mise à jour des alertes...');
+    const alertsContainer = document.getElementById('traffic-alerts-widget');
+    
+    if (!alertsContainer) {
+        console.error('Container des alertes non trouvé');
+        return;
+    }
+
+    // Show loading state
+    alertsContainer.innerHTML = '<p class="no-alerts">Chargement des alertes...</p>';
+
     fetch(API_URLS.TRAFFIC_ALERTS)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur HTTP: ' + response.status);  // Erreur HTTP
+            }
+            return response.json();
+        })
         .then(data => {
-            const alertsContainer = document.getElementById('traffic-alerts');
-            if (!alertsContainer) return;
+            console.log('Données d\'alertes reçues:', data);
+            
+            if (!data.results || !Array.isArray(data.results)) {
+                throw new Error('Format de données invalide');
+            }
 
             // Sort alerts by publication date (most recent first)
             const alerts = data.results.sort((a, b) => 
                 new Date(b.publication) - new Date(a.publication)
             );
 
-            // ===> display alerts
+            if (alerts.length === 0) {
+                alertsContainer.innerHTML = '<p class="no-alerts">Aucune perturbation en cours</p>';
+                console.log('Aucune alerte à afficher');
+                return;
+            }
+
+            // Generate HTML for alerts
             const alertsHTML = alerts.map(alert => {
                 const startDate = formatDate(alert.debutvalidite);
                 const endDate = formatDate(alert.finvalidite);
+                const niveau = alert.niveau && alert.niveau.length > 0 ? alert.niveau[0].toLowerCase() : 'mineure';
                 
                 return `
-                    <div class="alert-item ${alert.niveau[0].toLowerCase()}">
+                    <div class="alert-item ${niveau}">
                         <div class="alert-header">
-                            <span class="alert-line">Ligne ${alert.nomcourtligne}</span>
-                            <span class="alert-level">${alert.niveau[0]}</span>
+                            <span class="alert-line">Ligne ${alert.nomcourtligne || 'N/A'}</span>
+                            <span class="alert-level">${alert.niveau && alert.niveau.length > 0 ? alert.niveau[0] : 'N/A'}</span>
                         </div>
-                        <h3>${alert.titre}</h3>
-                        <p>${alert.description}</p>
+                        <h3>${alert.titre || 'Sans titre'}</h3>
+                        <p>${alert.description || 'Aucune description disponible'}</p>
                         <div class="alert-dates">
                             <span>Du ${startDate}</span>
                             <span>Au ${endDate}</span>
@@ -753,14 +871,26 @@ function updateTrafficAlerts() {
                 `;
             }).join('');
 
-            alertsContainer.innerHTML = alertsHTML || '<p class="no-alerts">Aucune perturbation en cours</p>';
+            // Update widget content
+            alertsContainer.innerHTML = alertsHTML;
+            
+
+            // NB : force a reflow to ensure the content is displayed
+            alertsContainer.style.display = 'none';
+            alertsContainer.offsetHeight;
+            alertsContainer.style.display = 'block';
+            
+            console.log('Contenu des alertes mis à jour avec succès');
         })
         .catch(error => {
             console.error('Erreur lors de la récupération des alertes:', error);
-            const alertsContainer = document.getElementById('traffic-alerts');
-            if (alertsContainer) {
-                alertsContainer.innerHTML = '<p class="error-message">Impossible de charger les alertes</p>';
-            }
+            alertsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Impossible de charger les alertes</p>
+                    <p class="error-details">${error.message}</p>
+                </div>
+            `;
         });
 }
 
@@ -782,7 +912,7 @@ function togglePanel(panelId) {
         button.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
-    // Si c'est le widget d'information, on met à jour aussi le bouton de contrôle
+    // If it's the info widget ===> update the control button
     if (panelId === 'info-widget') {
         const infoToggle = document.getElementById('info-toggle');
         if (infoToggle) {
@@ -1026,11 +1156,17 @@ style.textContent = `
     @media (max-width: 768px) {
         .alerts-panel {
             top: auto;
-            bottom: 60px;
+            bottom: 70px;
             left: 10px;
             right: 10px;
-            width: auto;
+            width: 180px;
             max-height: 40vh;
+        }
+        .alerts-header h2 {
+            font-size: 0.7rem;
+        }
+        .alerts-header h2 i {
+            font-size: 0.7rem;
         }
     }
 

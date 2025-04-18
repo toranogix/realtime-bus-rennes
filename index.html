@@ -248,7 +248,20 @@
             .control-panel {
                 left: 10px;
                 right: 10px;
-                max-width: none;
+                max-width: 200px;
+            }
+            .panel-header h2{
+                font-size: 0.8rem;
+            }
+            .panel-header h2 i {
+                font-size: 0.8rem;
+            }
+            .refresh-button, .toggle-button {
+                width: 22px;
+                height: 22px;
+            }
+            .refresh-button i, .toggle-button i {
+                font-size: 0.8rem;
             }
 
             .stats {
@@ -276,6 +289,9 @@
         </button>
         <button class="control-button" id="rotate" title="Rotation">
             <i class="fas fa-compass"></i>
+        </button>
+        <button class="control-button" id="alerts-toggle" title="Alertes trafic">
+            <i class="fas fa-exclamation-triangle"></i>
         </button>
         <button class="control-button" id="info-toggle" title="Informations">
             <i class="fas fa-circle-info"></i>
@@ -329,30 +345,23 @@
         </div>
     </div>
 
-
-
-
-    <!-- Alerts Panel -->
-    <div class="alerts-panel" id="alerts-panel">
+    <!-- Alerts Widget -->
+    <div class="alerts-widget" id="alerts-widget">
         <div class="alerts-header">
             <h2><i class="fas fa-exclamation-triangle"></i>Alertes trafic</h2>
             <div class="panel-controls">
                 <button class="refresh-button" onclick="updateTrafficAlerts()" title="Actualiser les alertes">
                     <i class="fas fa-sync-alt"></i>
                 </button>
-                <button class="toggle-button" onclick="togglePanel('alerts-panel')" title="Réduire/Agrandir">
-                    <i class="fas fa-chevron-up"></i>
+                <button class="toggle-button" title="Fermer">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
         </div>
-        <div class="alerts-content">
-            <div id="traffic-alerts">
-                <p class="no-alerts">Chargement des alertes...</p>
-            </div>
+        <div class="alerts-content" id="traffic-alerts-widget">
+            <p class="no-alerts">Chargement des alertes...</p>
         </div>
     </div>
-
-
 
     <!-- Footer -->
     <div class="footer">
