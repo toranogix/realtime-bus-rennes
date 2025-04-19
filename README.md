@@ -4,8 +4,8 @@ A real-time bus tracking application for the Rennes metropolitan area that show 
 
 Desktop version
 ![image](https://github.com/user-attachments/assets/8b9d54b8-5cfd-4953-8f8c-07f407f90363)
-
 Mobile version
+
 ![image](https://github.com/user-attachments/assets/e4a2092b-d305-40ce-a882-bf2b84d1f4e3)
 
 
