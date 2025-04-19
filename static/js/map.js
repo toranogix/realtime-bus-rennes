@@ -1,3 +1,5 @@
+
+
 // Map configuration
 const mapConfig = {
     container: 'map',
