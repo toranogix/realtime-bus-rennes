@@ -42,6 +42,10 @@ Mobile version
     ```
     npx http-server
     ```
+   You can also use python to run a local server:
+   ```
+   python -m http.server 8000
+   ```
 
 ## Usage
 
@@ -85,4 +89,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [STAR](https://www.star.fr/) for providing the bus data
 - [Mapbox](https://www.mapbox.com/) for the mapping technology
-- [OpenStreetMap](https://www.openstreetmap.org/) for the base map data
+
