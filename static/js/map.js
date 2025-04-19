@@ -1,5 +1,3 @@
-
-
 // Map configuration
 const mapConfig = {
     container: 'map',
@@ -27,7 +25,9 @@ const busConfig = {
     },
     size: 8,
     height: 20,
-    animationDuration: 5000
+    animationDuration: 5000,
+    minSpeed: 5, // vitesse minimale en km/h
+    maxSpeed: 50 // vitesse maximale en km/h
 };
 
 // URLs de l'API STAR
@@ -35,7 +35,9 @@ const API_URLS = {
     BUS_POSITION: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-vehicules-position-tr/exports/geojson?limit=-1&timezone=UTC&use_labels=false&epsg=4326",
     BUS_LANES: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-topologie-parcours-td/exports/geojson?limit=-1&timezone=UTC&use_labels=false&epsg=4326",
     TRAFFIC_ALERTS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-busmetro-trafic-alertes-tr/records?limit=-1",
-    BUS_ICONS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-lignes-pictogrammes-dm/records?limit=-1"
+    BUS_ICONS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-lignes-pictogrammes-dm/records?limit=-1",
+    BUS_PASSAGES: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-circulation-passages-tr/records?limit=-1",
+    BUS_STOPS: "https://data.explore.star.fr/api/explore/v2.1/catalog/datasets/tco-bus-topologie-pointsarret-td/records?limit=-1"
 };
 
 
@@ -44,6 +46,13 @@ const API_URLS = {
 let map;
 let lastUpdateTime = null;
 let busIcons = new Map(); 
+let busPositions = new Map(); // Store previous bus positions
+let busPassages = new Map(); // Store bus passages
+let animationFrameId = null; // For handling animation
+let lastAnimationTime = 0; // For tracking animation time
+let busStops = new Map(); // Add a Map to store bus stops
+let lastBusPositions = new Map(); // Store the latest known bus positions
+const ANIMATION_DURATION = 5000; // Animation duration in milliseconds
 
 
 
@@ -90,6 +99,8 @@ function initInfoWidget() {
         me.stopPropagation();
     });
 }
+
+
 
 // Initialize alerts widget
 function initAlertsWidget() {
@@ -228,13 +239,11 @@ function initMap() {
     map.on('load', () => {
         console.log("Carte chargée, initialisation des contrôles...");
         
-        // Initialize info widget
+        // Initialize info and widget
         initInfoWidget();
-
-        // Initialize alerts widget
         initAlertsWidget();
         
-        // Navigation controls ===> zoom in, zoom out, rotate
+        // Navigation controls
         const zoomInButton = document.getElementById('zoom-in');
         const zoomOutButton = document.getElementById('zoom-out');
         const rotateButton = document.getElementById('rotate');
@@ -260,7 +269,8 @@ function initMap() {
 
         map.addControl(new mapboxgl.ScaleControl());
 
-        // Add bus lanes first
+        // 1. Add sources first
+        // Bus lines source
         map.addSource('bus-lanes', {
             type: 'geojson',
             data: {
@@ -269,7 +279,26 @@ function initMap() {
             }
         });
 
-        // Add the bus lanes layer ==> use couleurtrace for color
+        // Bus stops source
+        map.addSource('bus-stops', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        });
+
+        // Bus source
+        map.addSource('buses', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        });
+
+        // 2. Add layers in order: lines, stops, buses
+        // Bus lines layer
         map.addLayer({
             'id': 'bus-lanes-layer',
             'type': 'line',
@@ -291,16 +320,39 @@ function initMap() {
             }
         });
 
-        // Add buses source
-        map.addSource('buses', {
-            type: 'geojson',
-            data: {
-                type: 'FeatureCollection',
-                features: []
-            }
+        // Bus stops
+        map.addLayer({
+            'id': 'bus-stops-layer',
+            'type': 'circle',
+            'source': 'bus-stops',
+            'paint': {
+                'circle-radius': 4,
+                'circle-color': '#ffffff',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#4CAF50',
+                'circle-opacity': 0.9,
+                'circle-stroke-opacity': 1
+            },
+            'filter': ['!=', ['get', 'mobilier'], 'Poteau']
         });
 
-        // Add circle layer first (for buses without icons)
+        // Bus stops
+        map.addLayer({
+            'id': 'bus-stops-poles-layer',
+            'type': 'circle',
+            'source': 'bus-stops',
+            'paint': {
+                'circle-radius': 3,
+                'circle-color': '#ffffff',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#FFA000',
+                'circle-opacity': 0.9,
+                'circle-stroke-opacity': 1
+            },
+            'filter': ['==', ['get', 'mobilier'], 'Poteau']
+        });
+
+        // Bus layer
         map.addLayer({
             'id': 'buses-fallback-layer',
             'type': 'circle',
@@ -326,7 +378,6 @@ function initMap() {
             }
         });
 
-        // Add icon layer on top
         map.addLayer({
             'id': 'buses-layer',
             'type': 'symbol',
@@ -340,25 +391,29 @@ function initMap() {
                 'icon-image': ['get', 'icon_id'],
                 'icon-size': 0.8,
                 'icon-allow-overlap': true,
-                'icon-ignore-placement': true
+                'icon-ignore-placement': true,
+                'icon-rotate': ['get', 'bearing'],
+                'icon-rotation-alignment': 'map'
             }
         });
 
-        console.log("Configuration des interactions...");
         setupInteractions();
         setupSearch();
 
-        // Load bus icons first
-        console.log("Chargement des pictogrammes de bus...");
-        loadBusIcons().then(() => {
-            // Then fetch bus lanes
-            console.log("Chargement des lignes de bus...");
-            fetchBusLanes();
-
-            console.log("Première mise à jour des données...");
+        // Add data in order
+        console.log("Chargement des données...");
+        Promise.all([
+            loadBusIcons(),
+            loadBusStops(),
+            fetchBusLanes()
+        ]).then(() => {
+            console.log("Mise à jour des couches...");
+            updateBusStopsLayer();
             updateBusData();
             updateTrafficAlerts();
             restorePanelStates();
+        }).catch(error => {
+            console.error("Erreur lors du chargement initial:", error);
         });
     });
 
@@ -430,13 +485,15 @@ function setupInteractions() {
             const coordinates = me.features[0].geometry.coordinates.slice();
             const properties = me.features[0].properties;
             
-
-            
-            // Convert seconds to a more readable format
             const retard = properties.delay_seconds || 0;
             const retardText = retard === 0 ? 'À l\'heure' : 
                              retard < 60 ? retard + ' secondes' :
                              Math.floor(retard/60) + ' min ' + retard%60 + ' sec';
+            
+            // Add progress and speed information
+            const progressText = properties.progress ? properties.progress + '%' : 'N/A';
+            //const speedText = properties.speed ? properties.speed + ' km/h' : 'N/A';
+            const nextStopText = properties.nextStop || 'N/A';
             
             const description = `
                 <div class="popup-container animated fadeIn">
@@ -448,6 +505,8 @@ function setupInteractions() {
                         <p><i class="fas fa-map-marker-alt"></i><strong>Destination:</strong> ${properties.destination || 'N/A'}</p>
                         <p><i class="fas fa-info-circle"></i><strong>Statut:</strong> ${properties.status}</p>
                         <p><i class="fas fa-clock"></i><strong>Retard:</strong> ${retardText}</p>
+                        <p><i class="fas fa-running"></i><strong>Progression:</strong> ${progressText}</p>
+                        <p><i class="fas fa-stop"></i><strong>Prochain arrêt:</strong> ${nextStopText}</p>
                     </div>
                 </div>
             `;
@@ -538,6 +597,79 @@ function setupInteractions() {
                 className: 'custom-popup',
                 maxWidth: '300px',
                 offset: 5
+            })
+                .setLngLat(coordinates)
+                .setHTML(description)
+                .addTo(map);
+        }
+    });
+
+
+    // Bus stops popup ===> onhover
+    map.on('mouseenter', 'bus-stops-layer', (me) => {
+        if (!me.features.length) return;
+        clearHoverPopup();
+
+        const coordinates = me.features[0].geometry.coordinates.slice();
+        const properties = me.features[0].properties;
+
+        // Mini popup au survol
+        const hoverDescription = `
+            <div class="hover-popup">
+                <div class="hover-header" style="background-color: ${properties.mobilier === 'Poteau' ? '#FFA000' : '#4CAF50'}">
+                    <span class="line-number">${properties.name || 'N/A'}</span>
+                </div>
+                <div class="hover-content">
+                    <span class="destination">${properties.commune || 'N/A'}</span>
+                </div>
+            </div>
+        `;
+
+        hoverPopup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            className: 'hover-popup-container',
+            offset: 15
+        })
+            .setLngLat(coordinates)
+            .setHTML(hoverDescription)
+            .addTo(map);
+
+        map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mouseleave', 'bus-stops-layer', () => {
+        clearHoverPopup();
+        map.getCanvas().style.cursor = '';
+    });
+
+    map.on('click', 'bus-stops-layer', (me) => {
+        if (me.features.length > 0) {
+            if (currentPopup) currentPopup.remove();
+            clearHoverPopup();
+
+            const coordinates = me.features[0].geometry.coordinates.slice();
+            const properties = me.features[0].properties;
+
+            const description = `
+                <div class="popup-container animated fadeIn">
+                    <div class="popup-header" style="background-color: ${properties.mobilier === 'Poteau' ? '#FFA000' : '#4CAF50'}">
+                        <h3><i class="fas fa-bus-simple"></i> ${properties.name || 'N/A'}</h3>
+                    </div>
+                    <div class="popup-content">
+                        <p><i class="fas fa-map-marker-alt"></i><strong>Commune:</strong> ${properties.commune || 'N/A'}</p>
+                        <p><i class="fas fa-info-circle"></i><strong>Type:</strong> ${properties.mobilier || 'N/A'}</p>
+                        <p><i class="fas fa-wheelchair"></i><strong>Accessible PMR:</strong> ${properties.accessible ? 'Oui' : 'Non'}</p>
+                    </div>
+                </div>
+            `;
+
+            currentPopup = new mapboxgl.Popup({
+                closeButton: true,
+                closeOnClick: false,
+                className: 'custom-popup',
+                maxWidth: '300px',
+                offset: 15
             })
                 .setLngLat(coordinates)
                 .setHTML(description)
@@ -688,8 +820,389 @@ function fetchBusLanes() {
         });
 }
 
-// Function to update the bus data
+// Function to load bus passages
+async function loadBusPassages() {
+    try {
+        console.log('Chargement des passages des bus...');
+        const response = await fetch(API_URLS.BUS_PASSAGES);
+        const data = await response.json();
+        
+        if (!data || !data.results || !Array.isArray(data.results)) {
+            console.error('Format de données invalide pour les passages:', data);
+            return;
+        }
+        
+        console.log('Nombre total de passages reçus: ' + data.results.length);
+        
+        // Group passages by bus number
+        const passages = new Map();
+        data.results.forEach(passage => {
+            // Create a unique key for each bus
+            const busKey = passage.numerobus || passage.idligne + '_' + passage.idcourse;
+            
+            if (!busKey) {
+                console.warn('Passage sans identifiant de bus:', passage);
+                return;
+            }
+            
+            // Verify that coordinates are valid
+            if (!passage.coordonnees || !passage.coordonnees.lon || !passage.coordonnees.lat) {
+                console.warn('Invalid coordinates for passage:', passage);
+                return;
+            }
+            
+            // Verify that hours are valid
+            const arrivalTime = new Date(passage.arrivee || passage.arriveetheorique).getTime();
+            const departureTime = new Date(passage.depart || passage.departtheorique).getTime();
+            
+            if (isNaN(arrivalTime) || isNaN(departureTime)) {
+                console.warn('Heures invalides pour le passage:', passage);
+                return;
+            }
+            
+            if (!passages.has(busKey)) {
+                passages.set(busKey, []);
+            }
+            
+            passages.get(busKey).push({
+                coordinates: [passage.coordonnees.lon, passage.coordonnees.lat],
+                arrivalTime: arrivalTime,
+                departureTime: departureTime,
+                stopId: passage.idarret,
+                stopName: passage.nomarret || 'Arrêt inconnu',
+                destination: passage.destination,
+                precision: passage.precision,
+                courseId: passage.idcourse,
+                lineId: passage.idligne,
+                lineName: passage.nomcourtligne
+            });
+        });
+        
+        // Sort passages by arrival time for each bus
+        passages.forEach(passageList => {
+            passageList.sort((a, b) => a.arrivalTime - b.arrivalTime);
+        });
+        
+        busPassages = passages;
+        console.log('Passages des bus chargés avec succès. Nombre de bus:', passages.size);
+    } catch (error) {
+        console.error('Erreur lors du chargement des passages:', error);
+    }
+}
+
+// Function to find next stop of a bus
+function findNextStop(busId, currentTime) {
+    if (!busId) return null;
+    
+    const busIdStr = String(busId);
+    
+    let passages = busPassages.get(busIdStr);
+    
+    if (!passages && typeof busIdStr === 'string' && busIdStr.indexOf('_') !== -1) {
+        const [lineId, courseId] = busIdStr.split('_');
+        passages = busPassages.get(`${lineId}_${courseId}`);
+    }
+    
+    if (!passages) {
+        for (const [key, value] of busPassages.entries()) {
+            if (value.length > 0 && value[0].lineId === busIdStr) {
+                passages = value;
+                break;
+            }
+        }
+    }
+    
+    if (!passages || passages.length === 0) {
+        return null;
+    }
+    
+    // Find next passage
+    for (let i = 0; i < passages.length; i++) {
+        if (passages[i].arrivalTime > currentTime) {
+            return {
+                nextStop: passages[i].stopName,
+                progress: calculateProgress(
+                    currentTime,
+                    i > 0 ? passages[i-1].departureTime : currentTime,
+                    passages[i].arrivalTime
+                ),
+                speed: calculateSpeed(
+                    i > 0 ? passages[i-1].coordinates : null,
+                    passages[i].coordinates,
+                    i > 0 ? passages[i-1].departureTime : currentTime,
+                    passages[i].arrivalTime
+                )
+            };
+        }
+    }
+    
+    return null;
+}
+
+// Function to calculate progress
+function calculateProgress(currentTime, startTime, endTime) {
+    if (!startTime || !endTime) return 0;
+    const total = endTime - startTime;
+    const elapsed = currentTime - startTime;
+    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+}
+
+// Function to calculate speed
+function calculateSpeed(startCoords, endCoords, startTime, endTime) {
+    if (!startCoords || !endCoords || !startTime || !endTime) return 0;
+    
+    const distance = calculateDistance(startCoords, endCoords);
+    const duration = (endTime - startTime) / 3600000; // Convertir en heures
+    return Math.round(distance / duration); // km/h
+}
+
+// Function to calculate bearing between two points
+function calculateBearing(start, end) {
+    const startLat = start[1] * Math.PI / 180;
+    const startLng = start[0] * Math.PI / 180;
+    const endLat = end[1] * Math.PI / 180;
+    const endLng = end[0] * Math.PI / 180;
+
+    const dLng = endLng - startLng;
+
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) -
+             Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+    let bearing = Math.atan2(y, x) * 180 / Math.PI;
+    if (bearing < 0) {
+        bearing += 360;
+    }
+    return bearing;
+}
+
+// Function to calculate distance between two points in km
+function calculateDistance(start, end) {
+    const R = 6371; // Earth radius in km
+    const lat1 = start[1] * Math.PI / 180;
+    const lat2 = end[1] * Math.PI / 180;
+    const dLat = lat2 - lat1;
+    const dLon = (end[0] - start[0]) * Math.PI / 180;
+
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+             Math.cos(lat1) * Math.cos(lat2) * 
+             Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+// Function to interpolate bus position
+function interpolateBusPosition(lineId, sens, currentTime) {
+    if (!lineId || sens === undefined) {
+        console.warn('Paramètres invalides pour interpolateBusPosition:', { lineId, sens });
+        return null;
+    }
+    
+    const key = lineId + '_' + sens;
+    const passages = busPassages.get(key);
+    
+    if (!passages || passages.length < 2) {
+        console.warn(`Pas assez de passages pour la ligne ${key}:`, passages);
+        return null;
+    }
+    
+    // Find the two passages that encircle the current time
+    let prevPassage = null;
+    let nextPassage = null;
+    
+    for (let i = 0; i < passages.length - 1; i++) {
+        if (passages[i].time <= currentTime && passages[i + 1].time >= currentTime) {
+            prevPassage = passages[i];
+            nextPassage = passages[i + 1];
+            break;
+        }
+    }
+    
+    // If no passage is found, use the first and last
+    if (!prevPassage || !nextPassage) {
+        if (currentTime < passages[0].time) {
+            // The bus has not yet started its journey
+            prevPassage = passages[0];
+            nextPassage = passages[1];
+        } else if (currentTime > passages[passages.length - 1].time) {
+            // The bus has finished its journey
+            prevPassage = passages[passages.length - 2];
+            nextPassage = passages[passages.length - 1];
+        } else {
+            console.warn(`Impossible de trouver des passages pour la ligne ${key} à ${new Date(currentTime).toISOString()}`);
+            return null;
+        }
+    }
+    
+    // Calculate progress between the two passages
+    const totalDuration = nextPassage.time - prevPassage.time;
+    const elapsed = currentTime - prevPassage.time;
+    const progress = Math.min(1, Math.max(0, elapsed / totalDuration));
+    
+    // Calculate distance between the stops
+    const distance = calculateDistance(prevPassage.coordinates, nextPassage.coordinates);
+    
+    // Calculate current speed (in km/h)
+    const speed = distance / (totalDuration / 3600000); // Convert ms to hours
+    
+    // Calculate bearing
+    const bearing = calculateBearing(prevPassage.coordinates, nextPassage.coordinates);
+    
+    // Linear interpolation between the two positions
+    const interpolatedPosition = [
+        prevPassage.coordinates[0] + (nextPassage.coordinates[0] - prevPassage.coordinates[0]) * progress,
+        prevPassage.coordinates[1] + (nextPassage.coordinates[1] - prevPassage.coordinates[1]) * progress
+    ];
+    
+    return {
+        coordinates: interpolatedPosition,
+        prevStop: prevPassage.arret,
+        nextStop: nextPassage.arret,
+        progress: progress,
+        bearing: bearing,
+        speed: speed
+    };
+}
+
+// Function to animate buses
+function animateBuses() {
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastAnimationTime;
+    lastAnimationTime = currentTime;
+
+    const source = map.getSource('buses');
+    if (!source || !source._data) {
+        animationFrameId = null;
+        return;
+    }
+
+    const features = source._data.features.map(feature => {
+        const properties = feature.properties;
+        const startTime = properties.startTime;
+        const elapsedTime = Date.now() - startTime;
+        const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
+
+        // Interpolation linéaire entre la position précédente et la position cible
+        if (properties.targetCoordinates && properties.previousCoordinates) {
+            const newCoordinates = [
+                properties.previousCoordinates[0] + (properties.targetCoordinates[0] - properties.previousCoordinates[0]) * progress,
+                properties.previousCoordinates[1] + (properties.targetCoordinates[1] - properties.previousCoordinates[1]) * progress
+            ];
+
+            return {
+                ...feature,
+                geometry: {
+                    ...feature.geometry,
+                    coordinates: newCoordinates
+                }
+            };
+        }
+
+        return feature;
+    });
+
+    source.setData({
+        type: 'FeatureCollection',
+        features: features
+    });
+
+    // Continuer l'animation
+    animationFrameId = requestAnimationFrame(animateBuses);
+}
+
+// Function to load bus stops
+async function loadBusStops() {
+    try {
+        console.log('Chargement des arrêts de bus...');
+        const response = await fetch(API_URLS.BUS_STOPS);
+        const data = await response.json();
+        
+        if (!data || !data.results) {
+            console.error('Format de données invalide pour les arrêts');
+            return;
+        }
+        
+        busStops.clear();
+        
+        data.results.forEach(stop => {
+            if (stop.code && stop.coordonnees) {
+                busStops.set(stop.code, {
+                    id: stop.code,
+                    name: stop.nom,
+                    coordinates: [stop.coordonnees.lon, stop.coordonnees.lat],
+                    commune: stop.nomcommune,
+                    accessible: stop.estaccessiblepmr === "true",
+                    mobilier: stop.mobilier,
+                    visibilite: stop.visibilite
+                });
+            }
+        });
+        
+        console.log(`${busStops.size} arrêts de bus chargés`);
+        return true;
+    } catch (error) {
+        console.error('Erreur lors du chargement des arrêts:', error);
+        throw error;
+    }
+}
+
+// Function to update bus stops layer
+function updateBusStopsLayer() {
+    if (!map.getSource('bus-stops')) return;
+    
+    const features = Array.from(busStops.values()).map(stop => ({
+        type: 'Feature',
+        geometry: {
+            type: 'Point',
+            coordinates: stop.coordinates
+        },
+        properties: {
+            id: stop.id,
+            name: stop.name,
+            commune: stop.commune,
+            accessible: stop.accessible,
+            mobilier: stop.mobilier,
+            visibilite: stop.visibilite
+        }
+    }));
+    
+    map.getSource('bus-stops').setData({
+        type: 'FeatureCollection',
+        features: features
+    });
+}
+
+// Function to find the nearest stop to a given position
+function findNearestStop(coordinates) {
+    if (!coordinates || coordinates.length !== 2) {
+        console.warn('Invalid coordinates for findNearestStop:', coordinates);
+        return null;
+    }
+
+    let nearestStop = null;
+    let minDistance = Infinity;
+
+    busStops.forEach(stop => {
+        if (!stop.coordinates || stop.coordinates.length !== 2) return;
+
+        const distance = calculateDistance(coordinates, stop.coordinates);
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestStop = stop;
+        }
+    });
+
+    // If the nearest stop is more than 200 meters away, we don't consider it relevant
+    if (minDistance > 0.2) {
+        return null;
+    }
+
+    return nearestStop;
+}
+
+// Function to update bus data
 function updateBusData() {
+    console.log('Mise à jour des données des bus...');
     fetch(API_URLS.BUS_POSITION)
         .then(response => response.text())
         .then(text => {
@@ -701,12 +1214,21 @@ function updateBusData() {
                 return JSON.parse(cleanedText);
             }
         })
-        .then(data => {
+        .then(async data => {
             if (!data || !data.features) {
                 console.error('Données invalides reçues de l\'API');
                 return;
             }
 
+            // Load stops bus
+            if (busStops.size === 0) {
+                await loadBusStops();
+            }
+            
+            // Update bus passages
+            await loadBusPassages();
+            
+            const currentTime = Date.now();
             const features = data.features
                 .filter(feature => 
                     feature.properties && 
@@ -716,36 +1238,45 @@ function updateBusData() {
                     feature.geometry.coordinates.length === 2
                 )
                 .map(feature => {
-                    const idligne = feature.properties.idligne;
-                    
-                    
-                    
-                    // Check if the icon exists
-                    const hasIcon = busIcons.has(idligne);
-                    
+                    const properties = feature.properties;
+                    const coordinates = feature.geometry.coordinates;
+                    const busId = properties.numerobus;
+
+                    // Save previous position before updating
+                    const previousPosition = lastBusPositions.get(busId);
+                    lastBusPositions.set(busId, {
+                        coordinates: coordinates,
+                        timestamp: currentTime,
+                        properties: properties
+                    });
+
+                    // Calculate bearing if we have a previous position
+                    let bearing = 0;
+                    if (previousPosition) {
+                        bearing = calculateBearing(previousPosition.coordinates, coordinates);
+                    }
+
                     return {
                         type: 'Feature',
-                        geometry: feature.geometry,
+                        geometry: {
+                            type: 'Point',
+                            coordinates: previousPosition ? previousPosition.coordinates : coordinates
+                        },
                         properties: {
-                            ...feature.properties,
-                            bus_id: feature.properties.idbus,
-                            line_name: feature.properties.nomcourtligne,
-                            direction: feature.properties.sens === 0 ? "Aller" : feature.properties.sens === 1 ? "Retour" : "N/A",
-                            destination: feature.properties.destination,
-                            delay_seconds: feature.properties.ecartsecondes,
-
-
-
-                            // Add icon_id only if the icon exists
-                            ...(hasIcon && { icon_id: busIcons.get(idligne) }),
-                            status: feature.properties.ecartsecondes > 0 ? 'En retard' : 
-                                   Array.isArray(feature.properties.etat) ? feature.properties.etat[0] : 
-                                   feature.properties.etat || 'Inconnu'
+                            ...properties,
+                            bus_id: busId,
+                            line_name: properties.nomcourtligne,
+                            direction: properties.sens === 0 ? "Aller" : properties.sens === 1 ? "Retour" : "N/A",
+                            destination: properties.destination,
+                            delay_seconds: properties.ecartsecondes,
+                            bearing: bearing,
+                            targetCoordinates: coordinates,
+                            startTime: currentTime,
+                            previousCoordinates: previousPosition ? previousPosition.coordinates : coordinates
                         }
                     };
                 });
 
-            // Process geojson data
             const geojson = {
                 type: 'FeatureCollection',
                 features: features
@@ -757,15 +1288,16 @@ function updateBusData() {
             }
             
             map.getSource('buses').setData(geojson);
-            
-            // Debug logs
-            const withIcons = features.filter(f => f.properties.icon_id).length;
-            const withoutIcons = features.filter(f => !f.properties.icon_id).length;
-            console.log('Nombre total de bus: ' + features.length);
-            console.log('Nombre de bus avec icônes: ' + withIcons);
-            console.log('Nombre de bus sans icônes: ' + withoutIcons);
-            
             updateStats(features);
+            
+
+
+
+            // Start animation
+            if (!animationFrameId) {
+                lastAnimationTime = performance.now();
+                animateBuses();
+            }
             
             lastUpdateTime = new Date();
             const mobileLastUpdateElement = document.getElementById('mobile-last-update');
