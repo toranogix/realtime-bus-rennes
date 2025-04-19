@@ -1,6 +1,6 @@
 # Realtime Bus Tracker - Rennes
 
-A real-time bus tracking application for the Rennes metropolitan area that show the current position of all buses on an interactive map.
+A real-time bus tracking application for the Rennes metropolitan area that shows the current position of all buses on an interactive map.
 
 Desktop version
 ![image](https://github.com/user-attachments/assets/8b9d54b8-5cfd-4953-8f8c-07f407f90363)
@@ -30,7 +30,7 @@ Mobile version
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/realtime-bus-Rennes.git
+   git clone https://github.com/toranogix/realtime-bus-rennes.git
    ```
 
 2. Navigate to the project directory:
@@ -42,7 +42,7 @@ Mobile version
     ```
     npx http-server
     ```
-   You can also use python to run a local server:
+   You can also use python to run a local server (localhost:8000):
    ```
    python -m http.server 8000
    ```
@@ -50,7 +50,7 @@ Mobile version
 ## Usage
 
 - **View Bus Positions**: The map automatically displays all active buses
-- **Check Bus Status**: Hover over a bus to see basic information, click for detailed information
+- **Check Bus Status**: Click on a bus to show detailed information
 - **View Traffic Alerts**: Click the alerts widget to see current traffic disruptions
 - **Search for a Bus Line**: Use the search bar to filter buses by line number
 
