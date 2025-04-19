@@ -1,8 +1,13 @@
 # Realtime Bus Tracker - Rennes
 
-A real-time bus tracking application for the Rennes metropolitan area, showing the current position of all STAR buses on an interactive map.
+A real-time bus tracking application for the Rennes metropolitan area that show the current position of all buses on an interactive map.
 
-![Bus Tracker Screenshot](screenshot.png)
+Desktop version
+![image](https://github.com/user-attachments/assets/8b9d54b8-5cfd-4953-8f8c-07f407f90363)
+
+Mobile version
+![image](https://github.com/user-attachments/assets/e4a2092b-d305-40ce-a882-bf2b84d1f4e3)
+
 
 ## Features
 
@@ -72,12 +77,6 @@ realtime-bus-Rennes/
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -87,9 +86,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [STAR](https://www.star.fr/) for providing the bus data
 - [Mapbox](https://www.mapbox.com/) for the mapping technology
 - [OpenStreetMap](https://www.openstreetmap.org/) for the base map data
-
-## Contact
-
-Omar.D - [GitHub](https://github.com/toranogix)
-
-Project Link: [https://github.com/yourusername/realtime-bus-Rennes](https://github.com/yourusername/realtime-bus-Rennes) 
